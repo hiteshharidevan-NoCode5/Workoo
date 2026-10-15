@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Dumbbell, Shield, Play, Plus, Trash2, CheckCircle2, 
-  RotateCcw, Download, Upload, Clock, ChevronRight, Activity
+  RotateCcw, Download, Clock, ChevronRight, Activity,
+  Mic, MicOff, Volume2, Calendar, Sun, Moon
 } from 'lucide-react';
 
-const MUSCLE_GROUPS = [
+const DAYS_OF_WEEK = [
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+];
+
+const INITIAL_MUSCLES = [
   'Chest', 'Back', 'Biceps', 'Triceps', 'Shoulders', 
-  'Quads', 'Hamstrings', 'Calves', 'Core'
+  'Quads', 'Hamstrings', 'Calves', 'Core', 'Glutes', 'Traps', 'Forearms'
 ];
 
 const PRESET_SPLITS = [
@@ -14,7 +19,7 @@ const PRESET_SPLITS = [
   { id: 'split2', name: 'Quads, Hamstrings & Calves (Leg Day)', muscles: ['Quads', 'Hamstrings', 'Calves'] },
   { id: 'split3', name: 'Chest & Triceps (Push Focus)', muscles: ['Chest', 'Triceps'] },
   { id: 'split4', name: 'Core Day (Abs & Stability)', muscles: ['Core'] },
-  { id: 'split5', name: 'Shoulder & Chest', muscles: ['Shoulders', 'Chest'] }
+  { id: 'split5', name: 'Shoulder & Chest Heavy', muscles: ['Shoulders', 'Chest'] }
 ];
 
 const DEFAULT_EXERCISES = [
@@ -32,9 +37,64 @@ const DEFAULT_EXERCISES = [
   { id: 'e12', name: 'Plank', muscle: 'Core' }
 ];
 
+// Helper: Synthesize Web Audio Chimes without external audio assets
+const playChime = (type = 'restEnd') => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'restEnd') {
+      // High pitch double-ding
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    } else {
+      // Soft start tick
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+    }
+  } catch (err) {
+    console.error('Audio playback error:', err);
+  }
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('split');
+  
+  // Custom & Default Muscles
+  const [muscleGroups, setMuscleGroups] = useState(() => {
+    const saved = localStorage.getItem('workoo_muscles');
+    return saved ? JSON.parse(saved) : INITIAL_MUSCLES;
+  });
+  const [newMuscleInput, setNewMuscleInput] = useState('');
+
+  // Selected Target Muscles
   const [selectedMuscles, setSelectedMuscles] = useState(['Chest', 'Triceps']);
+
+  // Weekly Schedule Planner (Monday through Sunday)
+  const [weeklyPlan, setWeeklyPlan] = useState(() => {
+    const saved = localStorage.getItem('workoo_weekly');
+    return saved ? JSON.parse(saved) : {
+      Monday: ['Chest', 'Triceps'],
+      Tuesday: ['Back', 'Biceps'],
+      Wednesday: ['Quads', 'Hamstrings', 'Calves'],
+      Thursday: ['Shoulders', 'Core'],
+      Friday: ['Chest', 'Back'],
+      Saturday: ['Core', 'Calves'],
+      Sunday: ['Rest']
+    };
+  });
+
+  // Exercises & Active Session
   const [exercises, setExercises] = useState(() => {
     const saved = localStorage.getItem('workoo_exercises');
     return saved ? JSON.parse(saved) : DEFAULT_EXERCISES;
@@ -45,9 +105,26 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Rest Timer State
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef(null);
+
+  // Screen Wake Lock reference
+  const wakeLockRef = useRef(null);
+
+  // Voice Command State
+  const [listening, setListening] = useState(false);
+  const [voiceNotice, setVoiceNotice] = useState('');
+
+  // Persistence Effects
+  useEffect(() => {
+    localStorage.setItem('workoo_muscles', JSON.stringify(muscleGroups));
+  }, [muscleGroups]);
+
+  useEffect(() => {
+    localStorage.setItem('workoo_weekly', JSON.stringify(weeklyPlan));
+  }, [weeklyPlan]);
 
   useEffect(() => {
     localStorage.setItem('workoo_exercises', JSON.stringify(exercises));
@@ -57,36 +134,139 @@ export default function App() {
     localStorage.setItem('workoo_active', JSON.stringify(activeWorkout));
   }, [activeWorkout]);
 
+  // Screen Wake Lock Management
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      if ('wakeLock' in navigator && activeWorkout) {
+        try {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        } catch (err) {
+          console.log('Wake Lock denied or unsupported:', err);
+        }
+      }
+    };
+
+    if (activeWorkout) {
+      requestWakeLock();
+    } else if (wakeLockRef.current) {
+      wakeLockRef.current.release().then(() => {
+        wakeLockRef.current = null;
+      });
+    }
+
+    return () => {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {});
+      }
+    };
+  }, [activeWorkout]);
+
+  // Timer Tick & Chime Trigger
   useEffect(() => {
     if (timerRunning && timerSeconds > 0) {
       timerRef.current = setInterval(() => {
         setTimerSeconds(s => s - 1);
       }, 1000);
-    } else if (timerSeconds === 0) {
+    } else if (timerSeconds === 0 && timerRunning) {
       setTimerRunning(false);
       clearInterval(timerRef.current);
+      playChime('restEnd');
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
     }
     return () => clearInterval(timerRef.current);
   }, [timerRunning, timerSeconds]);
 
+  // Voice Command Listener (Web Speech API)
+  const toggleVoiceControl = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Works best in Chrome/Edge.');
+      return;
+    }
+
+    if (listening) {
+      setListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setListening(true);
+      setVoiceNotice('Listening... Say muscle names (e.g. "Chest", "Triceps", "Clear")');
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript.toLowerCase();
+      setVoiceNotice(`Heard: "${transcript}"`);
+
+      if (transcript.includes('clear') || transcript.includes('reset')) {
+        setSelectedMuscles([]);
+      } else {
+        muscleGroups.forEach(m => {
+          if (transcript.includes(m.toLowerCase())) {
+            setSelectedMuscles(prev => prev.includes(m) ? prev : [...prev, m]);
+          }
+        });
+      }
+      setListening(false);
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+      setVoiceNotice('Voice recognition ended.');
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    recognition.start();
+  };
+
+  // Target Muscle Functions
   const toggleMuscle = (muscle) => {
     setSelectedMuscles(prev => 
       prev.includes(muscle) ? prev.filter(m => m !== muscle) : [...prev, muscle]
     );
   };
 
-  const startWorkoutFromSelection = () => {
-    const matching = exercises.filter(e => selectedMuscles.includes(e.muscle));
+  const handleAddCustomMuscle = (e) => {
+    e.preventDefault();
+    const clean = newMuscleInput.trim();
+    if (clean && !muscleGroups.some(m => m.toLowerCase() === clean.toLowerCase())) {
+      setMuscleGroups([...muscleGroups, clean]);
+      setSelectedMuscles([...selectedMuscles, clean]);
+      setNewMuscleInput('');
+    }
+  };
+
+  const startWorkoutFromSelection = (customList = null) => {
+    const targets = customList || selectedMuscles;
+    const matching = exercises.filter(e => targets.includes(e.muscle));
+    
+    // Fallback item if no pre-registered exercises exist for custom muscle
+    const sessionItems = matching.length > 0 ? matching.map(m => ({
+      id: m.id,
+      name: m.name,
+      muscle: m.muscle,
+      sets: [{ weight: '', reps: '', done: false }]
+    })) : targets.map((t, idx) => ({
+      id: `custom_${idx}`,
+      name: `${t} Exercise`,
+      muscle: t,
+      sets: [{ weight: '', reps: '', done: false }]
+    }));
+
     setActiveWorkout({
       startedAt: new Date().toISOString(),
-      name: selectedMuscles.join(' + ') + ' Session',
-      items: matching.map(m => ({
-        id: m.id,
-        name: m.name,
-        muscle: m.muscle,
-        sets: [{ weight: '', reps: '', done: false }]
-      }))
+      name: targets.join(' + ') + ' Session',
+      items: sessionItems
     });
+    playChime('start');
     setActiveTab('session');
   };
 
@@ -104,25 +284,21 @@ export default function App() {
     if (!currentStatus) {
       setTimerSeconds(60);
       setTimerRunning(true);
+      playChime('start');
     }
   };
 
-  const exportData = () => {
-    const data = { exercises, activeWorkout };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `workoo-backup-${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-  };
+  // Get current weekday name
+  const currentDayName = DAYS_OF_WEEK[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#090d16', color: '#f1f5f9', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      
+      {/* Top Header */}
       <header style={{ padding: '16px 20px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Dumbbell color="#38bdf8" size={24} />
-          <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, letterSpacing: '-0.5px' }}>Workoo</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src="icon.png" alt="Workoo!" style={{ width: '28px', height: '28px', borderRadius: '4px' }} />
+          <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, letterSpacing: '-0.5px' }}>Workoo!</h1>
           <span style={{ fontSize: '11px', background: '#0284c7', color: '#fff', padding: '2px 8px', borderRadius: '12px' }}>Offline</span>
         </div>
         <button onClick={() => setActiveTab('privacy')} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
@@ -130,11 +306,151 @@ export default function App() {
         </button>
       </header>
 
+      {/* Main Content Area */}
       <main style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px 90px 16px' }}>
-        
+
+        {/* TAB 1: Split Designer & Weekly Calendar */}
         {activeTab === 'split' && (
           <div>
-            <h2 style={{ fontSize: '18px', marginBottom: '8px' }}>1. Preset Splits</h2>
+            {/* Weekly Schedule Section */}
+            <div style={{ background: '#131b2e', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h2 style={{ fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar size={18} color="#38bdf8" /> Weekly Muscle Schedule
+                </h2>
+                <span style={{ fontSize: '12px', color: '#38bdf8', fontWeight: '600' }}>Today: {currentDayName}</span>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {DAYS_OF_WEEK.map(day => {
+                  const isToday = day === currentDayName;
+                  const daySplit = weeklyPlan[day] || [];
+                  return (
+                    <div 
+                      key={day} 
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        padding: '8px 12px', 
+                        borderRadius: '6px', 
+                        background: isToday ? '#1e293b' : 'transparent',
+                        border: isToday ? '1px solid #0284c7' : '1px solid #1e293b'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: isToday ? 'bold' : 'normal', color: isToday ? '#38bdf8' : '#cbd5e1' }}>
+                          {day}
+                        </span>
+                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                          {daySplit.join(', ')}
+                        </span>
+                      </div>
+                      {daySplit[0] !== 'Rest' && (
+                        <button
+                          onClick={() => startWorkoutFromSelection(daySplit)}
+                          style={{ background: '#0284c7', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
+                        >
+                          Start
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Target Muscle Selection with Voice Command */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h2 style={{ fontSize: '16px', margin: 0 }}>Target Muscle Groups</h2>
+              <button
+                onClick={toggleVoiceControl}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: listening ? '#dc2626' : '#1e293b',
+                  border: '1px solid #334155',
+                  color: '#fff',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                {listening ? <MicOff size={14} /> : <Mic size={14} color="#38bdf8" />}
+                {listening ? 'Listening...' : 'Voice Select'}
+              </button>
+            </div>
+
+            {voiceNotice && (
+              <div style={{ fontSize: '12px', color: '#38bdf8', marginBottom: '10px', fontStyle: 'italic' }}>
+                {voiceNotice}
+              </div>
+            )}
+
+            {/* Muscle Buttons */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+              {muscleGroups.map(muscle => {
+                const active = selectedMuscles.includes(muscle);
+                return (
+                  <button
+                    key={muscle}
+                    onClick={() => toggleMuscle(muscle)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '20px',
+                      fontSize: '13px',
+                      border: active ? '1px solid #38bdf8' : '1px solid #334155',
+                      background: active ? '#0284c7' : '#1e293b',
+                      color: active ? '#fff' : '#cbd5e1',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {muscle}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Muscle Group Input */}
+            <form onSubmit={handleAddCustomMuscle} style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+              <input
+                type="text"
+                placeholder="Add custom muscle group (e.g. Neck, Traps)..."
+                value={newMuscleInput}
+                onChange={(e) => setNewMuscleInput(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  background: '#1e293b',
+                  border: '1px solid #334155',
+                  borderRadius: '6px',
+                  color: '#fff',
+                  fontSize: '13px'
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  background: '#334155',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={16} /> Add
+              </button>
+            </form>
+
+            {/* Presets */}
+            <h2 style={{ fontSize: '16px', marginBottom: '10px' }}>Preset Combinations</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
               {PRESET_SPLITS.map(split => (
                 <button
@@ -162,32 +478,9 @@ export default function App() {
               ))}
             </div>
 
-            <h2 style={{ fontSize: '18px', marginBottom: '8px' }}>2. Or Select Target Muscles</h2>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
-              {MUSCLE_GROUPS.map(muscle => {
-                const active = selectedMuscles.includes(muscle);
-                return (
-                  <button
-                    key={muscle}
-                    onClick={() => toggleMuscle(muscle)}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: '20px',
-                      fontSize: '13px',
-                      border: active ? '1px solid #38bdf8' : '1px solid #334155',
-                      background: active ? '#0284c7' : '#1e293b',
-                      color: active ? '#fff' : '#cbd5e1',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {muscle}
-                  </button>
-                );
-              })}
-            </div>
-
+            {/* Start Button */}
             <button
-              onClick={startWorkoutFromSelection}
+              onClick={() => startWorkoutFromSelection()}
               disabled={selectedMuscles.length === 0}
               style={{
                 width: '100%',
@@ -204,11 +497,12 @@ export default function App() {
                 gap: '8px'
               }}
             >
-              <Play size={18} /> Start Workout Session
+              <Play size={18} /> Start Session ({selectedMuscles.length} Muscles)
             </button>
           </div>
         )}
 
+        {/* TAB 2: Active Session */}
         {activeTab === 'session' && (
           <div>
             {!activeWorkout ? (
@@ -224,26 +518,34 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div>
                     <h2 style={{ margin: 0, fontSize: '18px' }}>{activeWorkout.name}</h2>
-                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>All data stored locally</span>
+                    <span style={{ fontSize: '12px', color: '#10b981' }}>● Screen Wake Lock Active</span>
                   </div>
                   <button 
-                    onClick={() => { if(confirm('Finish and clear active workout?')) setActiveWorkout(null); }}
+                    onClick={() => { if(confirm('Finish and record workout?')) setActiveWorkout(null); }}
                     style={{ background: '#dc2626', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}
                   >
                     Finish
                   </button>
                 </div>
 
+                {/* Rest Timer with Audio Notification */}
                 {timerSeconds > 0 && (
-                  <div style={{ background: '#1e293b', border: '1px solid #38bdf8', padding: '12px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Clock size={18} color="#38bdf8" />
-                      <span style={{ fontWeight: 'bold' }}>Rest Timer: {timerSeconds}s</span>
+                  <div style={{ background: '#1e293b', border: '1px solid #38bdf8', padding: '14px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Clock size={22} color="#38bdf8" />
+                      <div>
+                        <div style={{ fontWeight: 'bold', fontSize: '16px' }}>Rest: {timerSeconds}s</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>Chimes will alert when time is up</div>
+                      </div>
                     </div>
-                    <button onClick={() => setTimerSeconds(0)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>Dismiss</button>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button onClick={() => setTimerSeconds(s => s + 30)} style={{ background: '#334155', border: 'none', color: '#fff', padding: '6px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>+30s</button>
+                      <button onClick={() => setTimerSeconds(0)} style={{ background: '#dc2626', border: 'none', color: '#fff', padding: '6px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>Skip</button>
+                    </div>
                   </div>
                 )}
 
+                {/* Exercise List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {activeWorkout.items.map((item, itemIdx) => (
                     <div key={item.id} style={{ background: '#1e293b', borderRadius: '8px', padding: '16px' }}>
@@ -294,19 +596,27 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB 3: Privacy & Data Controls */}
         {activeTab === 'privacy' && (
           <div style={{ background: '#1e293b', padding: '20px', borderRadius: '8px' }}>
             <h2 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Shield color="#10b981" /> 100% Privacy Guarantee
             </h2>
             <p style={{ fontSize: '13px', color: '#cbd5e1', lineHeight: '1.6' }}>
-              Workoo never tracks you, includes no analytics SDKs, serves no ads, and has no backend database. 
-              All workouts, splits, and rep logs reside solely inside your browser's local cache.
+              Workoo! runs exclusively inside your browser client. No audio, voice data, rep logs, or routine names are ever sent to an external server.
             </p>
             <hr style={{ borderColor: '#334155', margin: '16px 0' }} />
             <h3 style={{ fontSize: '14px', marginBottom: '12px' }}>Local Storage Management</h3>
             <button 
-              onClick={exportData}
+              onClick={() => {
+                const data = { muscleGroups, weeklyPlan, exercises, activeWorkout };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `workoo-backup-${new Date().toISOString().slice(0,10)}.json`;
+                a.click();
+              }}
               style={{ width: '100%', padding: '10px', background: '#0284c7', border: 'none', borderRadius: '6px', color: '#fff', fontWeight: 'bold', cursor: 'pointer', marginBottom: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
             >
               <Download size={16} /> Export Data as JSON
@@ -322,6 +632,7 @@ export default function App() {
 
       </main>
 
+      {/* Bottom Navigation */}
       <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
         <button 
           onClick={() => setActiveTab('split')}

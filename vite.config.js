@@ -7,6 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'icon.png'],
       manifest: {
         name: 'Workoo! - Private Workout Tracker',
         short_name: 'Workoo!',
@@ -14,17 +15,20 @@ export default defineConfig({
         theme_color: '#090d16',
         background_color: '#090d16',
         display: 'standalone',
-        start_url: './',
+        scope: '/Workoo/',
+        start_url: '/Workoo/',
         icons: [
           {
             src: 'icon.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: 'icon.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       },

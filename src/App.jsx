@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Dumbbell, Shield, Play, Plus, Trash2, CheckCircle2, 
-  RotateCcw, Download, Clock, ChevronRight, Activity,
-  Mic, MicOff, Volume2, Calendar, Sun, Moon
+  Clock, ChevronRight, Activity, Mic, MicOff, Calendar,
+  QrCode, X, Share2
 } from 'lucide-react';
+import QRCode from 'qrcode';
 
 const DAYS_OF_WEEK = [
   'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
@@ -37,7 +38,6 @@ const DEFAULT_EXERCISES = [
   { id: 'e12', name: 'Plank', muscle: 'Core' }
 ];
 
-// Helper: Synthesize Web Audio Chimes without external audio assets
 const playChime = (type = 'restEnd') => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -47,7 +47,6 @@ const playChime = (type = 'restEnd') => {
     gain.connect(ctx.destination);
 
     if (type === 'restEnd') {
-      // High pitch double-ding
       osc.frequency.setValueAtTime(880, ctx.currentTime);
       osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.15);
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
@@ -55,7 +54,6 @@ const playChime = (type = 'restEnd') => {
       osc.start();
       osc.stop(ctx.currentTime + 0.6);
     } else {
-      // Soft start tick
       osc.frequency.setValueAtTime(523.25, ctx.currentTime);
       gain.gain.setValueAtTime(0.2, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
@@ -63,85 +61,99 @@ const playChime = (type = 'restEnd') => {
       osc.stop(ctx.currentTime + 0.2);
     }
   } catch (err) {
-    console.error('Audio playback error:', err);
+    console.error('Audio error:', err);
   }
 };
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('split');
-  
-  // Custom & Default Muscles
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const appUrl = window.location.href;
+
   const [muscleGroups, setMuscleGroups] = useState(() => {
-    const saved = localStorage.getItem('workoo_muscles');
-    return saved ? JSON.parse(saved) : INITIAL_MUSCLES;
+    try {
+      const saved = localStorage.getItem('workoo_muscles');
+      return saved ? JSON.parse(saved) : INITIAL_MUSCLES;
+    } catch {
+      return INITIAL_MUSCLES;
+    }
   });
   const [newMuscleInput, setNewMuscleInput] = useState('');
-
-  // Selected Target Muscles
   const [selectedMuscles, setSelectedMuscles] = useState(['Chest', 'Triceps']);
 
-  // Weekly Schedule Planner (Monday through Sunday)
-  const [weeklyPlan, setWeeklyPlan] = useState(() => {
-    const saved = localStorage.getItem('workoo_weekly');
-    return saved ? JSON.parse(saved) : {
-      Monday: ['Chest', 'Triceps'],
-      Tuesday: ['Back', 'Biceps'],
-      Wednesday: ['Quads', 'Hamstrings', 'Calves'],
-      Thursday: ['Shoulders', 'Core'],
-      Friday: ['Chest', 'Back'],
-      Saturday: ['Core', 'Calves'],
-      Sunday: ['Rest']
-    };
+  const [weeklyPlan] = useState(() => {
+    try {
+      const saved = localStorage.getItem('workoo_weekly');
+      return saved ? JSON.parse(saved) : {
+        Monday: ['Chest', 'Triceps'],
+        Tuesday: ['Back', 'Biceps'],
+        Wednesday: ['Quads', 'Hamstrings', 'Calves'],
+        Thursday: ['Shoulders', 'Core'],
+        Friday: ['Chest', 'Back'],
+        Saturday: ['Core', 'Calves'],
+        Sunday: ['Rest']
+      };
+    } catch {
+      return { Sunday: ['Rest'] };
+    }
   });
 
-  // Exercises & Active Session
-  const [exercises, setExercises] = useState(() => {
-    const saved = localStorage.getItem('workoo_exercises');
-    return saved ? JSON.parse(saved) : DEFAULT_EXERCISES;
+  const [exercises] = useState(() => {
+    try {
+      const saved = localStorage.getItem('workoo_exercises');
+      return saved ? JSON.parse(saved) : DEFAULT_EXERCISES;
+    } catch {
+      return DEFAULT_EXERCISES;
+    }
   });
 
   const [activeWorkout, setActiveWorkout] = useState(() => {
-    const saved = localStorage.getItem('workoo_active');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('workoo_active');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
 
-  // Rest Timer State
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef(null);
-
-  // Screen Wake Lock reference
   const wakeLockRef = useRef(null);
 
-  // Voice Command State
   const [listening, setListening] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState('');
 
-  // Persistence Effects
+  useEffect(() => {
+    QRCode.toDataURL(appUrl, {
+      width: 220,
+      margin: 2,
+      color: { dark: '#090d16', light: '#ffffff' }
+    })
+      .then(url => setQrDataUrl(url))
+      .catch(err => console.error(err));
+  }, [appUrl]);
+
   useEffect(() => {
     localStorage.setItem('workoo_muscles', JSON.stringify(muscleGroups));
   }, [muscleGroups]);
 
   useEffect(() => {
-    localStorage.setItem('workoo_weekly', JSON.stringify(weeklyPlan));
-  }, [weeklyPlan]);
-
-  useEffect(() => {
-    localStorage.setItem('workoo_exercises', JSON.stringify(exercises));
-  }, [exercises]);
-
-  useEffect(() => {
-    localStorage.setItem('workoo_active', JSON.stringify(activeWorkout));
+    if (activeWorkout) {
+      localStorage.setItem('workoo_active', JSON.stringify(activeWorkout));
+    } else {
+      localStorage.removeItem('workoo_active');
+    }
   }, [activeWorkout]);
 
-  // Screen Wake Lock Management
   useEffect(() => {
     const requestWakeLock = async () => {
       if ('wakeLock' in navigator && activeWorkout) {
         try {
           wakeLockRef.current = await navigator.wakeLock.request('screen');
         } catch (err) {
-          console.log('Wake Lock denied or unsupported:', err);
+          console.log('Wake Lock unavailable:', err);
         }
       }
     };
@@ -161,7 +173,6 @@ export default function App() {
     };
   }, [activeWorkout]);
 
-  // Timer Tick & Chime Trigger
   useEffect(() => {
     if (timerRunning && timerSeconds > 0) {
       timerRef.current = setInterval(() => {
@@ -176,11 +187,24 @@ export default function App() {
     return () => clearInterval(timerRef.current);
   }, [timerRunning, timerSeconds]);
 
-  // Voice Command Listener (Web Speech API)
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Workoo! - Offline Workout Tracker',
+          text: 'Private, offline workout tracker:',
+          url: appUrl,
+        });
+      } catch (err) {
+        console.log('Share dismissed');
+      }
+    }
+  };
+
   const toggleVoiceControl = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser. Works best in Chrome/Edge.');
+      alert('Speech recognition is not supported in this browser.');
       return;
     }
 
@@ -192,11 +216,10 @@ export default function App() {
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.lang = 'en-US';
-    recognition.interimResults = false;
 
     recognition.onstart = () => {
       setListening(true);
-      setVoiceNotice('Listening... Say muscle names (e.g. "Chest", "Triceps", "Clear")');
+      setVoiceNotice('Listening... Say muscle names or "Clear"');
     };
 
     recognition.onresult = (event) => {
@@ -227,7 +250,6 @@ export default function App() {
     recognition.start();
   };
 
-  // Target Muscle Functions
   const toggleMuscle = (muscle) => {
     setSelectedMuscles(prev => 
       prev.includes(muscle) ? prev.filter(m => m !== muscle) : [...prev, muscle]
@@ -248,7 +270,6 @@ export default function App() {
     const targets = customList || selectedMuscles;
     const matching = exercises.filter(e => targets.includes(e.muscle));
     
-    // Fallback item if no pre-registered exercises exist for custom muscle
     const sessionItems = matching.length > 0 ? matching.map(m => ({
       id: m.id,
       name: m.name,
@@ -288,31 +309,36 @@ export default function App() {
     }
   };
 
-  // Get current weekday name
   const currentDayName = DAYS_OF_WEEK[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#090d16', color: '#f1f5f9', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      
-      {/* Top Header */}
       <header style={{ padding: '16px 20px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img src="icon.png" alt="Workoo!" style={{ width: '28px', height: '28px', borderRadius: '4px' }} />
           <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, letterSpacing: '-0.5px' }}>Workoo!</h1>
           <span style={{ fontSize: '11px', background: '#0284c7', color: '#fff', padding: '2px 8px', borderRadius: '12px' }}>Offline</span>
         </div>
-        <button onClick={() => setActiveTab('privacy')} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
-          <Shield size={20} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <button 
+            onClick={() => setShowQrModal(true)} 
+            title="Scan & Share App"
+            style={{ background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          >
+            <QrCode size={22} />
+          </button>
+          <button 
+            onClick={() => setActiveTab('privacy')} 
+            style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          >
+            <Shield size={20} />
+          </button>
+        </div>
       </header>
 
-      {/* Main Content Area */}
       <main style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px 90px 16px' }}>
-
-        {/* TAB 1: Split Designer & Weekly Calendar */}
         {activeTab === 'split' && (
           <div>
-            {/* Weekly Schedule Section */}
             <div style={{ background: '#131b2e', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <h2 style={{ fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -360,7 +386,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Target Muscle Selection with Voice Command */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h2 style={{ fontSize: '16px', margin: 0 }}>Target Muscle Groups</h2>
               <button
@@ -389,7 +414,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Muscle Buttons */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
               {muscleGroups.map(muscle => {
                 const active = selectedMuscles.includes(muscle);
@@ -413,11 +437,10 @@ export default function App() {
               })}
             </div>
 
-            {/* Custom Muscle Group Input */}
             <form onSubmit={handleAddCustomMuscle} style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
               <input
                 type="text"
-                placeholder="Add custom muscle group (e.g. Neck, Traps)..."
+                placeholder="Add custom muscle (e.g. Forearms, Neck)..."
                 value={newMuscleInput}
                 onChange={(e) => setNewMuscleInput(e.target.value)}
                 style={{
@@ -449,7 +472,6 @@ export default function App() {
               </button>
             </form>
 
-            {/* Presets */}
             <h2 style={{ fontSize: '16px', marginBottom: '10px' }}>Preset Combinations</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
               {PRESET_SPLITS.map(split => (
@@ -478,7 +500,6 @@ export default function App() {
               ))}
             </div>
 
-            {/* Start Button */}
             <button
               onClick={() => startWorkoutFromSelection()}
               disabled={selectedMuscles.length === 0}
@@ -502,7 +523,6 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: Active Session */}
         {activeTab === 'session' && (
           <div>
             {!activeWorkout ? (
@@ -528,7 +548,6 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Rest Timer with Audio Notification */}
                 {timerSeconds > 0 && (
                   <div style={{ background: '#1e293b', border: '1px solid #38bdf8', padding: '14px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -545,7 +564,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Exercise List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {activeWorkout.items.map((item, itemIdx) => (
                     <div key={item.id} style={{ background: '#1e293b', borderRadius: '8px', padding: '16px' }}>
@@ -596,43 +614,116 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: Privacy & Data Controls */}
         {activeTab === 'privacy' && (
           <div style={{ background: '#1e293b', padding: '20px', borderRadius: '8px' }}>
             <h2 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Shield color="#10b981" /> 100% Privacy Guarantee
             </h2>
             <p style={{ fontSize: '13px', color: '#cbd5e1', lineHeight: '1.6' }}>
-              Workoo! runs exclusively inside your browser client. No audio, voice data, rep logs, or routine names are ever sent to an external server.
+              Workoo! runs exclusively on your device. Zero servers, zero telemetry, zero analytics.
             </p>
             <hr style={{ borderColor: '#334155', margin: '16px 0' }} />
-            <h3 style={{ fontSize: '14px', marginBottom: '12px' }}>Local Storage Management</h3>
             <button 
-              onClick={() => {
-                const data = { muscleGroups, weeklyPlan, exercises, activeWorkout };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `workoo-backup-${new Date().toISOString().slice(0,10)}.json`;
-                a.click();
-              }}
-              style={{ width: '100%', padding: '10px', background: '#0284c7', border: 'none', borderRadius: '6px', color: '#fff', fontWeight: 'bold', cursor: 'pointer', marginBottom: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
-            >
-              <Download size={16} /> Export Data as JSON
-            </button>
-            <button 
-              onClick={() => { if(confirm('Clear all local data?')) { localStorage.clear(); window.location.reload(); } }}
+              onClick={() => { if(confirm('Clear local data?')) { localStorage.clear(); window.location.reload(); } }}
               style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px solid #ef4444', borderRadius: '6px', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
             >
               <Trash2 size={16} /> Wipe Local Storage
             </button>
           </div>
         )}
-
       </main>
 
-      {/* Bottom Navigation */}
+      {/* QR Modal */}
+      {showQrModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '16px',
+          zIndex: 100
+        }}>
+          <div style={{
+            background: '#131b2e',
+            border: '1px solid #334155',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '340px',
+            width: '100%',
+            textAlign: 'center',
+            position: 'relative'
+          }}>
+            <button 
+              onClick={() => setShowQrModal(false)}
+              style={{
+                position: 'absolute',
+                top: '14px',
+                right: '14px',
+                background: 'transparent',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', color: '#f1f5f9' }}>Scan to Install Workoo!</h3>
+            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 16px 0' }}>
+              Scan with any phone camera to open and install offline.
+            </p>
+
+            {qrDataUrl && (
+              <div style={{ background: '#fff', padding: '12px', borderRadius: '12px', display: 'inline-block', marginBottom: '16px' }}>
+                <img src={qrDataUrl} alt="App QR Code" style={{ display: 'block', width: '200px', height: '200px' }} />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {navigator.share && (
+                <button
+                  onClick={handleShare}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '10px',
+                    background: '#0284c7',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Share2 size={16} /> Share Link
+                </button>
+              )}
+              <button
+                onClick={() => setShowQrModal(false)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  background: 'transparent',
+                  border: '1px solid #334155',
+                  borderRadius: '8px',
+                  color: '#cbd5e1',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
         <button 
           onClick={() => setActiveTab('split')}

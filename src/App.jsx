@@ -1,4 +1,3 @@
-cat << 'EOF' > src/App.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { 
   Dumbbell, Shield, Play, Plus, Trash2, CheckCircle2, 
@@ -1392,4 +1391,3 @@ export default function App() {
     </div>
   );
 }
-EOF

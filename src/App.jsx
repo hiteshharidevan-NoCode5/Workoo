@@ -82,7 +82,6 @@ export default function App() {
   const [newMuscleInput, setNewMuscleInput] = useState('');
   const [selectedMuscles, setSelectedMuscles] = useState(['Chest', 'Triceps']);
 
-  // Editable Presets State
   const [presetSplits, setPresetSplits] = useState(() => {
     try {
       const saved = localStorage.getItem('workoo_presets');
@@ -92,9 +91,10 @@ export default function App() {
     }
   });
 
-  const [editingPreset, setEditingPreset] = useState(null); // null or { id, name, muscles }
+  const [editingPreset, setEditingPreset] = useState(null);
 
-  const [weeklyPlan] = useState(() => {
+  // Editable Weekly Plan
+  const [weeklyPlan, setWeeklyPlan] = useState(() => {
     try {
       const saved = localStorage.getItem('workoo_weekly');
       return saved ? JSON.parse(saved) : {
@@ -110,6 +110,9 @@ export default function App() {
       return { Sunday: ['Rest'] };
     }
   });
+
+  // State for editing a specific day's schedule
+  const [editingDay, setEditingDay] = useState(null); // e.g. { day: 'Thursday', muscles: ['Chest', 'Triceps'] }
 
   const [exercises] = useState(() => {
     try {
@@ -137,7 +140,6 @@ export default function App() {
   const [listening, setListening] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState('');
 
-  // Persistent storage API check
   useEffect(() => {
     if (navigator.storage && navigator.storage.persist) {
       navigator.storage.persist().catch(() => {});
@@ -161,6 +163,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('workoo_presets', JSON.stringify(presetSplits));
   }, [presetSplits]);
+
+  useEffect(() => {
+    localStorage.setItem('workoo_weekly', JSON.stringify(weeklyPlan));
+  }, [weeklyPlan]);
 
   useEffect(() => {
     if (activeWorkout) {
@@ -340,6 +346,42 @@ export default function App() {
     setEditingPreset(null);
   };
 
+  // Day Schedule Handlers
+  const handleOpenEditDay = (day) => {
+    const current = weeklyPlan[day] || ['Rest'];
+    setEditingDay({
+      day,
+      isRest: current.length === 1 && current[0] === 'Rest',
+      muscles: current[0] === 'Rest' ? [] : [...current]
+    });
+  };
+
+  const toggleDayEditorMuscle = (muscle) => {
+    setEditingDay(prev => {
+      const has = prev.muscles.includes(muscle);
+      const updated = has ? prev.muscles.filter(m => m !== muscle) : [...prev.muscles, muscle];
+      return { ...prev, isRest: false, muscles: updated };
+    });
+  };
+
+  const applyPresetToDay = (presetMuscles) => {
+    setEditingDay(prev => ({
+      ...prev,
+      isRest: false,
+      muscles: [...presetMuscles]
+    }));
+  };
+
+  const handleSaveDayPlan = (e) => {
+    e.preventDefault();
+    const finalMuscles = editingDay.isRest || editingDay.muscles.length === 0 ? ['Rest'] : editingDay.muscles;
+    setWeeklyPlan(prev => ({
+      ...prev,
+      [editingDay.day]: finalMuscles
+    }));
+    setEditingDay(null);
+  };
+
   const startWorkoutFromSelection = (customList = null) => {
     const targets = customList || selectedMuscles;
     const matching = exercises.filter(e => targets.includes(e.muscle));
@@ -414,7 +456,7 @@ export default function App() {
       <main style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px 90px 16px' }}>
         {activeTab === 'split' && (
           <div>
-            {/* Weekly Schedule */}
+            {/* Weekly Muscle Schedule */}
             <div style={{ background: '#131b2e', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <h2 style={{ fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -426,7 +468,9 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {DAYS_OF_WEEK.map(day => {
                   const isToday = day === currentDayName;
-                  const daySplit = weeklyPlan[day] || [];
+                  const daySplit = weeklyPlan[day] || ['Rest'];
+                  const isRest = daySplit.length === 1 && daySplit[0] === 'Rest';
+
                   return (
                     <div 
                       key={day} 
@@ -440,22 +484,32 @@ export default function App() {
                         border: isToday ? '1px solid #0284c7' : '1px solid #1e293b'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: isToday ? 'bold' : 'normal', color: isToday ? '#38bdf8' : '#cbd5e1' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                        <span style={{ fontSize: '13px', fontWeight: isToday ? 'bold' : 'normal', color: isToday ? '#38bdf8' : '#cbd5e1', minWidth: '75px' }}>
                           {day}
                         </span>
-                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                        <span style={{ fontSize: '12px', color: isRest ? '#64748b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {daySplit.join(', ')}
                         </span>
                       </div>
-                      {daySplit[0] !== 'Rest' && (
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <button
-                          onClick={() => startWorkoutFromSelection(daySplit)}
-                          style={{ background: '#0284c7', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
+                          onClick={() => handleOpenEditDay(day)}
+                          title={`Edit ${day}'s routine`}
+                          style={{ background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', padding: '4px' }}
                         >
-                          Start
+                          <Edit2 size={15} />
                         </button>
-                      )}
+                        {!isRest && (
+                          <button
+                            onClick={() => startWorkoutFromSelection(daySplit)}
+                            style={{ background: '#0284c7', border: 'none', color: '#fff', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            Start
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -749,6 +803,132 @@ export default function App() {
         )}
       </main>
 
+      {/* Day Schedule Editor Modal */}
+      {editingDay && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '16px',
+          zIndex: 110
+        }}>
+          <div style={{
+            background: '#131b2e',
+            border: '1px solid #334155',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '380px',
+            width: '100%',
+            position: 'relative',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <button 
+              onClick={() => setEditingDay(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', color: '#f1f5f9' }}>
+              Edit Routine for {editingDay.day}
+            </h3>
+
+            {/* Quick apply preset */}
+            {presetSplits.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
+                  Quick Apply Saved Preset:
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {presetSplits.map(preset => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyPresetToDay(preset.muscles)}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        background: '#1e293b',
+                        border: '1px solid #0284c7',
+                        color: '#38bdf8',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#cbd5e1' }}>
+                <input 
+                  type="checkbox"
+                  checked={editingDay.isRest}
+                  onChange={(e) => setEditingDay({ ...editingDay, isRest: e.target.checked, muscles: [] })}
+                  style={{ width: '16px', height: '16px', accentColor: '#0284c7' }}
+                />
+                Mark as Rest Day
+              </label>
+            </div>
+
+            {!editingDay.isRest && (
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>
+                  Target Muscle Groups ({editingDay.muscles.length} selected):
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                  {muscleGroups.map(muscle => {
+                    const active = editingDay.muscles.includes(muscle);
+                    return (
+                      <button
+                        type="button"
+                        key={muscle}
+                        onClick={() => toggleDayEditorMuscle(muscle)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '16px',
+                          fontSize: '12px',
+                          border: active ? '1px solid #38bdf8' : '1px solid #334155',
+                          background: active ? '#0284c7' : '#1e293b',
+                          color: active ? '#fff' : '#cbd5e1',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {muscle}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setEditingDay(null)}
+                style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #334155', borderRadius: '6px', color: '#cbd5e1', fontSize: '13px', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDayPlan}
+                style={{ flex: 1, padding: '10px', background: '#0284c7', border: 'none', borderRadius: '6px', color: '#fff', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}
+              >
+                Save Day
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Preset Create / Edit Modal */}
       {editingPreset && (
         <div style={{
@@ -774,15 +954,7 @@ export default function App() {
           }}>
             <button 
               onClick={() => setEditingPreset(null)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer'
-              }}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
             >
               <X size={20} />
             </button>
@@ -848,32 +1020,13 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setEditingPreset(null)}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    background: 'transparent',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    color: '#cbd5e1',
-                    fontSize: '13px',
-                    cursor: 'pointer'
-                  }}
+                  style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #334155', borderRadius: '6px', color: '#cbd5e1', fontSize: '13px', cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    background: '#0284c7',
-                    border: 'none',
-                    borderRadius: '6px',
-                    color: '#fff',
-                    fontWeight: 'bold',
-                    fontSize: '13px',
-                    cursor: 'pointer'
-                  }}
+                  style={{ flex: 1, padding: '10px', background: '#0284c7', border: 'none', borderRadius: '6px', color: '#fff', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}
                 >
                   Save Preset
                 </button>
@@ -907,15 +1060,7 @@ export default function App() {
           }}>
             <button 
               onClick={() => setShowQrModal(false)}
-              style={{
-                position: 'absolute',
-                top: '14px',
-                right: '14px',
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer'
-              }}
+              style={{ position: 'absolute', top: '14px', right: '14px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
             >
               <X size={20} />
             </button>
@@ -956,16 +1101,7 @@ export default function App() {
               )}
               <button
                 onClick={() => setShowQrModal(false)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: 'transparent',
-                  border: '1px solid #334155',
-                  borderRadius: '8px',
-                  color: '#cbd5e1',
-                  fontSize: '12px',
-                  cursor: 'pointer'
-                }}
+                style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px solid #334155', borderRadius: '8px', color: '#cbd5e1', fontSize: '12px', cursor: 'pointer' }}
               >
                 Close
               </button>
@@ -974,7 +1110,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Bottom Nav */}
+      {/* Bottom Navigation */}
       <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
         <button 
           onClick={() => setActiveTab('split')}

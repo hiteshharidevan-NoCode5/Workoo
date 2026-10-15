@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Dumbbell, Shield, Play, Plus, Trash2, CheckCircle2, 
   Clock, ChevronRight, Activity, Mic, MicOff, Calendar,
-  QrCode, X, Share2
+  QrCode, X, Share2, Edit2
 } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -15,7 +15,7 @@ const INITIAL_MUSCLES = [
   'Quads', 'Hamstrings', 'Calves', 'Core', 'Glutes', 'Traps', 'Forearms'
 ];
 
-const PRESET_SPLITS = [
+const DEFAULT_PRESET_SPLITS = [
   { id: 'split1', name: 'Back, Biceps & Lower Body', muscles: ['Back', 'Biceps', 'Quads', 'Hamstrings', 'Calves'] },
   { id: 'split2', name: 'Quads, Hamstrings & Calves (Leg Day)', muscles: ['Quads', 'Hamstrings', 'Calves'] },
   { id: 'split3', name: 'Chest & Triceps (Push Focus)', muscles: ['Chest', 'Triceps'] },
@@ -82,6 +82,18 @@ export default function App() {
   const [newMuscleInput, setNewMuscleInput] = useState('');
   const [selectedMuscles, setSelectedMuscles] = useState(['Chest', 'Triceps']);
 
+  // Editable Presets State
+  const [presetSplits, setPresetSplits] = useState(() => {
+    try {
+      const saved = localStorage.getItem('workoo_presets');
+      return saved ? JSON.parse(saved) : DEFAULT_PRESET_SPLITS;
+    } catch {
+      return DEFAULT_PRESET_SPLITS;
+    }
+  });
+
+  const [editingPreset, setEditingPreset] = useState(null); // null or { id, name, muscles }
+
   const [weeklyPlan] = useState(() => {
     try {
       const saved = localStorage.getItem('workoo_weekly');
@@ -125,6 +137,13 @@ export default function App() {
   const [listening, setListening] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState('');
 
+  // Persistent storage API check
+  useEffect(() => {
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     QRCode.toDataURL(appUrl, {
       width: 220,
@@ -138,6 +157,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('workoo_muscles', JSON.stringify(muscleGroups));
   }, [muscleGroups]);
+
+  useEffect(() => {
+    localStorage.setItem('workoo_presets', JSON.stringify(presetSplits));
+  }, [presetSplits]);
 
   useEffect(() => {
     if (activeWorkout) {
@@ -266,6 +289,57 @@ export default function App() {
     }
   };
 
+  // Preset Handlers
+  const handleOpenNewPreset = () => {
+    setEditingPreset({
+      id: `custom_${Date.now()}`,
+      name: '',
+      muscles: []
+    });
+  };
+
+  const handleOpenEditPreset = (preset, e) => {
+    e.stopPropagation();
+    setEditingPreset({ ...preset, muscles: [...preset.muscles] });
+  };
+
+  const handleDeletePreset = (id, e) => {
+    e.stopPropagation();
+    if (confirm('Delete this preset combination?')) {
+      setPresetSplits(presetSplits.filter(p => p.id !== id));
+    }
+  };
+
+  const togglePresetEditorMuscle = (muscle) => {
+    setEditingPreset(prev => {
+      const has = prev.muscles.includes(muscle);
+      return {
+        ...prev,
+        muscles: has ? prev.muscles.filter(m => m !== muscle) : [...prev.muscles, muscle]
+      };
+    });
+  };
+
+  const handleSavePreset = (e) => {
+    e.preventDefault();
+    if (!editingPreset.name.trim()) {
+      alert('Please enter a preset name');
+      return;
+    }
+    if (editingPreset.muscles.length === 0) {
+      alert('Please select at least one muscle group');
+      return;
+    }
+
+    const exists = presetSplits.some(p => p.id === editingPreset.id);
+    if (exists) {
+      setPresetSplits(presetSplits.map(p => p.id === editingPreset.id ? editingPreset : p));
+    } else {
+      setPresetSplits([...presetSplits, editingPreset]);
+    }
+    setEditingPreset(null);
+  };
+
   const startWorkoutFromSelection = (customList = null) => {
     const targets = customList || selectedMuscles;
     const matching = exercises.filter(e => targets.includes(e.muscle));
@@ -313,6 +387,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#090d16', color: '#f1f5f9', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {/* Header */}
       <header style={{ padding: '16px 20px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img src="icon.png" alt="Workoo!" style={{ width: '28px', height: '28px', borderRadius: '4px' }} />
@@ -339,6 +414,7 @@ export default function App() {
       <main style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px 90px 16px' }}>
         {activeTab === 'split' && (
           <div>
+            {/* Weekly Schedule */}
             <div style={{ background: '#131b2e', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <h2 style={{ fontSize: '16px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -386,6 +462,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* Target Muscle Groups */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h2 style={{ fontSize: '16px', margin: 0 }}>Target Muscle Groups</h2>
               <button
@@ -472,15 +549,35 @@ export default function App() {
               </button>
             </form>
 
-            <h2 style={{ fontSize: '16px', marginBottom: '10px' }}>Preset Combinations</h2>
+            {/* Editable Preset Combinations */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h2 style={{ fontSize: '16px', margin: 0 }}>Preset Combinations</h2>
+              <button
+                onClick={handleOpenNewPreset}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'transparent',
+                  border: '1px solid #0284c7',
+                  color: '#38bdf8',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Plus size={14} /> New Preset
+              </button>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
-              {PRESET_SPLITS.map(split => (
-                <button
+              {presetSplits.map(split => (
+                <div
                   key={split.id}
                   onClick={() => setSelectedMuscles(split.muscles)}
                   style={{
-                    textAlign: 'left',
-                    padding: '12px 16px',
+                    padding: '12px 14px',
                     borderRadius: '8px',
                     border: '1px solid #334155',
                     background: '#1e293b',
@@ -491,12 +588,29 @@ export default function App() {
                     cursor: 'pointer'
                   }}
                 >
-                  <div>
-                    <div style={{ fontWeight: '600', fontSize: '14px' }}>{split.name}</div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>{split.muscles.join(', ')}</div>
+                  <div style={{ flex: 1, marginRight: '10px' }}>
+                    <div style={{ fontWeight: '600', fontSize: '14px', color: '#f1f5f9' }}>{split.name}</div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{split.muscles.join(', ')}</div>
                   </div>
-                  <ChevronRight size={16} color="#64748b" />
-                </button>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      onClick={(e) => handleOpenEditPreset(split, e)}
+                      title="Edit Preset"
+                      style={{ background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', padding: '4px' }}
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => handleDeletePreset(split.id, e)}
+                      title="Delete Preset"
+                      style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <ChevronRight size={16} color="#64748b" />
+                  </div>
+                </div>
               ))}
             </div>
 
@@ -523,6 +637,7 @@ export default function App() {
           </div>
         )}
 
+        {/* Active Workout Session */}
         {activeTab === 'session' && (
           <div>
             {!activeWorkout ? (
@@ -614,6 +729,7 @@ export default function App() {
           </div>
         )}
 
+        {/* Privacy Screen */}
         {activeTab === 'privacy' && (
           <div style={{ background: '#1e293b', padding: '20px', borderRadius: '8px' }}>
             <h2 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -632,6 +748,140 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Preset Create / Edit Modal */}
+      {editingPreset && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '16px',
+          zIndex: 110
+        }}>
+          <div style={{
+            background: '#131b2e',
+            border: '1px solid #334155',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '380px',
+            width: '100%',
+            position: 'relative',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <button 
+              onClick={() => setEditingPreset(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'transparent',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', color: '#f1f5f9' }}>
+              {presetSplits.some(p => p.id === editingPreset.id) ? 'Edit Preset Split' : 'Design New Preset'}
+            </h3>
+
+            <form onSubmit={handleSavePreset}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
+                  Preset Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Chest & Triceps (Push)"
+                  value={editingPreset.name}
+                  onChange={(e) => setEditingPreset({ ...editingPreset, name: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    background: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#fff',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>
+                  Included Muscle Groups ({editingPreset.muscles.length} selected)
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                  {muscleGroups.map(muscle => {
+                    const active = editingPreset.muscles.includes(muscle);
+                    return (
+                      <button
+                        type="button"
+                        key={muscle}
+                        onClick={() => togglePresetEditorMuscle(muscle)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '16px',
+                          fontSize: '12px',
+                          border: active ? '1px solid #38bdf8' : '1px solid #334155',
+                          background: active ? '#0284c7' : '#1e293b',
+                          color: active ? '#fff' : '#cbd5e1',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {muscle}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingPreset(null)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: 'transparent',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#cbd5e1',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: '#0284c7',
+                    border: 'none',
+                    borderRadius: '6px',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Save Preset
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* QR Modal */}
       {showQrModal && (
@@ -724,6 +974,7 @@ export default function App() {
         </div>
       )}
 
+      {/* Bottom Nav */}
       <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
         <button 
           onClick={() => setActiveTab('split')}

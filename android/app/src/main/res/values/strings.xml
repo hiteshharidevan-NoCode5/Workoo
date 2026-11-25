@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Workoo!</string>
+    <string name="title_activity_main">Workoo!</string>
+    <string name="package_name">com.hitesh.workoo</string>
+    <string name="custom_url_scheme">com.hitesh.workoo</string>
+</resources>

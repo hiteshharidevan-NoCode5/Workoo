@@ -33,13 +33,15 @@ jobs:
           npm install
           npm run build
 
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
+      - name: Package GitHub Pages artifact
+        run: |
+          tar -cvf artifact.tar -C dist .
 
       - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
-          path: './dist'
+          name: github-pages
+          path: artifact.tar
 
       - name: Deploy to GitHub Pages
         id: deployment
@@ -55,7 +57,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Setup Java 17
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'

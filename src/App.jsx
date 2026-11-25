@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   Dumbbell, Shield, Play, Plus, Trash2, CheckCircle2, 
   Clock, ChevronRight, Activity, Mic, MicOff, Calendar,
-  QrCode, X, Share2, Edit2, RefreshCw, Key, Smartphone
+  QrCode, X, Share2, Edit2, RefreshCw, Key, Smartphone, ArrowLeft, Home
 } from "lucide-react";
 import QRCode from "qrcode";
 import { initializeApp } from "firebase/app";
@@ -565,7 +565,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#090d16", color: "#f1f5f9", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <header style={{ padding: "16px 20px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div onClick={() => setActiveTab("split")} title="Go to Home" style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
           <img src="icon.png" alt="Workoo!" style={{ width: "28px", height: "28px", borderRadius: "4px" }} />
           <h1 style={{ fontSize: "20px", fontWeight: "bold", margin: 0, letterSpacing: "-0.5px" }}>Workoo!</h1>
           <span style={{ 
@@ -836,6 +836,25 @@ export default function App() {
 
         {activeTab === "session" && (
           <div>
+          <button
+            onClick={() => setActiveTab("split")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#1e293b",
+              border: "1px solid #334155",
+              color: "#38bdf8",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: "pointer",
+              marginBottom: "16px"
+            }}
+          >
+            <ArrowLeft size={16} /> Back to Home
+          </button>
             {!activeWorkout ? (
               <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
                 <Activity size={48} style={{ opacity: 0.4, marginBottom: "12px" }} />
@@ -926,6 +945,26 @@ export default function App() {
         )}
 
         {activeTab === "privacy" && (
+          <div>
+          <button
+            onClick={() => setActiveTab("split")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#1e293b",
+              border: "1px solid #334155",
+              color: "#38bdf8",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: "pointer",
+              marginBottom: "16px"
+            }}
+          >
+            <ArrowLeft size={16} /> Back to Home
+          </button>
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             <div style={{ background: "#131b2e", border: "1px solid #1e293b", padding: "20px", borderRadius: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
@@ -1058,6 +1097,7 @@ export default function App() {
                 <Trash2 size={16} /> Wipe Local Storage
               </button>
             </div>
+          </div>
           </div>
         )}
       </main>
@@ -1370,8 +1410,8 @@ export default function App() {
           onClick={() => setActiveTab("split")}
           style={{ background: "none", border: "none", color: activeTab === "split" ? "#38bdf8" : "#64748b", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", fontSize: "11px", gap: "4px" }}
         >
-          <Dumbbell size={20} />
-          <span>Splits</span>
+          <Home size={20} />
+          <span>Home</span>
         </button>
         <button 
           onClick={() => setActiveTab("session")}

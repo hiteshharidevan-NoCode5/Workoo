@@ -564,6 +564,32 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#090d16", color: "#f1f5f9", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      {/* Fixed subtle teal icon watermark */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          pointerEvents: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 0,
+          overflow: "hidden"
+        }}
+      >
+        <img
+          src="./icon.png"
+          alt=""
+          style={{
+            width: "280px",
+            height: "280px",
+            objectFit: "contain",
+            opacity: 0.08,
+            userSelect: "none"
+          }}
+        />
+      </div>
       <header style={{ padding: "16px 20px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div onClick={() => setActiveTab("split")} title="Go to Home" style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
           <img src="icon.png" alt="Workoo!" style={{ width: "28px", height: "28px", borderRadius: "4px" }} />

@@ -585,12 +585,23 @@ export default function App() {
             width: "280px",
             height: "280px",
             objectFit: "contain",
-            opacity: 0.08,
+            opacity: 0.24,
+            filter: "drop-shadow(0 0 36px rgba(20, 184, 166, 0.35))",
             userSelect: "none"
           }}
         />
+        <div
+          style={{
+            position: "absolute",
+            width: "340px",
+            height: "340px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(13, 148, 136, 0.18) 0%, rgba(9, 13, 22, 0) 70%)",
+            zIndex: -1
+          }}
+        />
       </div>
-      <header style={{ padding: "16px 20px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <header style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255, 255, 255, 0.10)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div onClick={() => setActiveTab("split")} title="Go to Home" style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
           <img src="icon.png" alt="Workoo!" style={{ width: "28px", height: "28px", borderRadius: "4px" }} />
           <h1 style={{ fontSize: "20px", fontWeight: "bold", margin: 0, letterSpacing: "-0.5px" }}>Workoo!</h1>
@@ -628,7 +639,7 @@ export default function App() {
       <main style={{ maxWidth: "640px", margin: "0 auto", padding: "20px 16px 90px 16px" }}>
         {activeTab === "split" && (
           <div>
-            <div style={{ background: "#131b2e", border: "1px solid #1e293b", borderRadius: "12px", padding: "16px", marginBottom: "24px" }}>
+            <div style={{ backgroundColor: "rgba(19, 27, 46, 0.55)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: "1px solid rgba(255, 255, 255, 0.10)", borderRadius: "12px", padding: "16px", marginBottom: "24px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                 <h2 style={{ fontSize: "16px", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
                   <Calendar size={18} color="#38bdf8" /> Weekly Muscle Schedule
@@ -652,7 +663,7 @@ export default function App() {
                         padding: "8px 12px", 
                         borderRadius: "6px", 
                         background: isToday ? "#1e293b" : "transparent",
-                        border: isToday ? "1px solid #0284c7" : "1px solid #1e293b"
+                        border: isToday ? "1px solid #0284c7" : "1px solid rgba(255, 255, 255, 0.10)"
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0, overflow: "hidden" }}>
@@ -696,7 +707,7 @@ export default function App() {
                   alignItems: "center",
                   gap: "6px",
                   background: listening ? "#dc2626" : "#1e293b",
-                  border: "1px solid #334155",
+                  border: "1px solid rgba(20, 184, 166, 0.25)",
                   color: "#fff",
                   padding: "6px 12px",
                   borderRadius: "20px",
@@ -726,7 +737,7 @@ export default function App() {
                       padding: "8px 14px",
                       borderRadius: "20px",
                       fontSize: "13px",
-                      border: active ? "1px solid #38bdf8" : "1px solid #334155",
+                      border: active ? "1px solid #38bdf8" : "1px solid rgba(20, 184, 166, 0.25)",
                       background: active ? "#0284c7" : "#1e293b",
                       color: active ? "#fff" : "#cbd5e1",
                       cursor: "pointer"
@@ -748,7 +759,7 @@ export default function App() {
                   flex: 1,
                   padding: "8px 12px",
                   background: "#1e293b",
-                  border: "1px solid #334155",
+                  border: "1px solid rgba(20, 184, 166, 0.25)",
                   borderRadius: "6px",
                   color: "#fff",
                   fontSize: "13px"
@@ -802,7 +813,7 @@ export default function App() {
                   style={{
                     padding: "12px 14px",
                     borderRadius: "8px",
-                    border: "1px solid #334155",
+                    border: "1px solid rgba(20, 184, 166, 0.25)",
                     background: "#1e293b",
                     color: "#fff",
                     display: "flex",
@@ -869,7 +880,7 @@ export default function App() {
               alignItems: "center",
               gap: "6px",
               background: "#1e293b",
-              border: "1px solid #334155",
+              border: "1px solid rgba(20, 184, 166, 0.25)",
               color: "#38bdf8",
               padding: "6px 12px",
               borderRadius: "8px",
@@ -933,11 +944,11 @@ export default function App() {
                           <span style={{ width: "24px", fontSize: "12px", color: "#94a3b8" }}>#{sIdx + 1}</span>
                           <input 
                             placeholder="kg" 
-                            style={{ width: "60px", padding: "6px", background: "#0f172a", border: "1px solid #334155", color: "#fff", borderRadius: "4px" }} 
+                            style={{ width: "60px", padding: "6px", background: "#0f172a", border: "1px solid rgba(20, 184, 166, 0.25)", color: "#fff", borderRadius: "4px" }} 
                           />
                           <input 
                             placeholder="reps" 
-                            style={{ width: "60px", padding: "6px", background: "#0f172a", border: "1px solid #334155", color: "#fff", borderRadius: "4px" }} 
+                            style={{ width: "60px", padding: "6px", background: "#0f172a", border: "1px solid rgba(20, 184, 166, 0.25)", color: "#fff", borderRadius: "4px" }} 
                           />
                           <button
                             onClick={() => toggleSetDone(itemIdx, sIdx)}
@@ -979,7 +990,7 @@ export default function App() {
               alignItems: "center",
               gap: "6px",
               background: "#1e293b",
-              border: "1px solid #334155",
+              border: "1px solid rgba(20, 184, 166, 0.25)",
               color: "#38bdf8",
               padding: "6px 12px",
               borderRadius: "8px",
@@ -992,7 +1003,7 @@ export default function App() {
             <ArrowLeft size={16} /> Back to Home
           </button>
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div style={{ background: "#131b2e", border: "1px solid #1e293b", padding: "20px", borderRadius: "12px" }}>
+            <div style={{ backgroundColor: "rgba(19, 27, 46, 0.55)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: "1px solid rgba(255, 255, 255, 0.10)", padding: "20px", borderRadius: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                 <h2 style={{ fontSize: "18px", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
                   <Smartphone color="#38bdf8" /> Cloud Device Sync
@@ -1015,7 +1026,7 @@ export default function App() {
 
               {syncKey ? (
                 <div>
-                  <div style={{ background: "#090d16", padding: "14px", borderRadius: "8px", border: "1px solid #334155", textAlign: "center", marginBottom: "16px" }}>
+                  <div style={{ background: "#090d16", padding: "14px", borderRadius: "8px", border: "1px solid rgba(20, 184, 166, 0.25)", textAlign: "center", marginBottom: "16px" }}>
                     <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "4px" }}>CURRENT SYNC LOCKER KEY</div>
                     <div style={{ fontSize: "18px", fontWeight: "bold", letterSpacing: "1px", color: "#38bdf8" }}>{syncKey}</div>
                   </div>
@@ -1083,7 +1094,7 @@ export default function App() {
                         flex: 1,
                         padding: "8px 12px",
                         background: "#090d16",
-                        border: "1px solid #334155",
+                        border: "1px solid rgba(20, 184, 166, 0.25)",
                         borderRadius: "6px",
                         color: "#fff",
                         fontSize: "13px"
@@ -1140,8 +1151,8 @@ export default function App() {
           zIndex: 110
         }}>
           <div style={{
-            background: "#131b2e",
-            border: "1px solid #334155",
+            backgroundColor: "rgba(19, 27, 46, 0.55)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+            border: "1px solid rgba(20, 184, 166, 0.25)",
             borderRadius: "16px",
             padding: "24px",
             maxWidth: "380px",
@@ -1218,7 +1229,7 @@ export default function App() {
                           padding: "6px 12px",
                           borderRadius: "16px",
                           fontSize: "12px",
-                          border: active ? "1px solid #38bdf8" : "1px solid #334155",
+                          border: active ? "1px solid #38bdf8" : "1px solid rgba(20, 184, 166, 0.25)",
                           background: active ? "#0284c7" : "#1e293b",
                           color: active ? "#fff" : "#cbd5e1",
                           cursor: "pointer"
@@ -1236,7 +1247,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setEditingDay(null)}
-                style={{ flex: 1, padding: "10px", background: "transparent", border: "1px solid #334155", borderRadius: "6px", color: "#cbd5e1", fontSize: "13px", cursor: "pointer" }}
+                style={{ flex: 1, padding: "10px", background: "transparent", border: "1px solid rgba(20, 184, 166, 0.25)", borderRadius: "6px", color: "#cbd5e1", fontSize: "13px", cursor: "pointer" }}
               >
                 Cancel
               </button>
@@ -1264,8 +1275,8 @@ export default function App() {
           zIndex: 110
         }}>
           <div style={{
-            background: "#131b2e",
-            border: "1px solid #334155",
+            backgroundColor: "rgba(19, 27, 46, 0.55)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+            border: "1px solid rgba(20, 184, 166, 0.25)",
             borderRadius: "16px",
             padding: "24px",
             maxWidth: "380px",
@@ -1299,7 +1310,7 @@ export default function App() {
                     width: "100%",
                     padding: "8px 12px",
                     background: "#1e293b",
-                    border: "1px solid #334155",
+                    border: "1px solid rgba(20, 184, 166, 0.25)",
                     borderRadius: "6px",
                     color: "#fff",
                     fontSize: "14px",
@@ -1325,7 +1336,7 @@ export default function App() {
                           padding: "6px 12px",
                           borderRadius: "16px",
                           fontSize: "12px",
-                          border: active ? "1px solid #38bdf8" : "1px solid #334155",
+                          border: active ? "1px solid #38bdf8" : "1px solid rgba(20, 184, 166, 0.25)",
                           background: active ? "#0284c7" : "#1e293b",
                           color: active ? "#fff" : "#cbd5e1",
                           cursor: "pointer"
@@ -1342,7 +1353,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setEditingPreset(null)}
-                  style={{ flex: 1, padding: "10px", background: "transparent", border: "1px solid #334155", borderRadius: "6px", color: "#cbd5e1", fontSize: "13px", cursor: "pointer" }}
+                  style={{ flex: 1, padding: "10px", background: "transparent", border: "1px solid rgba(20, 184, 166, 0.25)", borderRadius: "6px", color: "#cbd5e1", fontSize: "13px", cursor: "pointer" }}
                 >
                   Cancel
                 </button>
@@ -1370,8 +1381,8 @@ export default function App() {
           zIndex: 100
         }}>
           <div style={{
-            background: "#131b2e",
-            border: "1px solid #334155",
+            backgroundColor: "rgba(19, 27, 46, 0.55)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+            border: "1px solid rgba(20, 184, 166, 0.25)",
             borderRadius: "16px",
             padding: "24px",
             maxWidth: "340px",
@@ -1422,7 +1433,7 @@ export default function App() {
               )}
               <button
                 onClick={() => setShowQrModal(false)}
-                style={{ width: "100%", padding: "8px", background: "transparent", border: "1px solid #334155", borderRadius: "8px", color: "#cbd5e1", fontSize: "12px", cursor: "pointer" }}
+                style={{ width: "100%", padding: "8px", background: "transparent", border: "1px solid rgba(20, 184, 166, 0.25)", borderRadius: "8px", color: "#cbd5e1", fontSize: "12px", cursor: "pointer" }}
               >
                 Close
               </button>
@@ -1431,7 +1442,7 @@ export default function App() {
         </div>
       )}
 
-      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#0f172a", borderTop: "1px solid #1e293b", display: "flex", justifyContent: "space-around", padding: "12px 0" }}>
+      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#0f172a", borderTop: "1px solid rgba(255, 255, 255, 0.10)", display: "flex", justifyContent: "space-around", padding: "12px 0" }}>
         <button 
           onClick={() => setActiveTab("split")}
           style={{ background: "none", border: "none", color: activeTab === "split" ? "#38bdf8" : "#64748b", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", fontSize: "11px", gap: "4px" }}
